@@ -2,6 +2,8 @@
 
 This is a fully javascript app where I asked multiple coding LLMs to implement their own javascript chess bots to play against each other. The results are a pile of hot garbage. This is the worst chess I've ever seen in my life.
 
+<img width="987" alt="Screenshot 2025-06-29 at 7 38 39 PM" src="https://github.com/user-attachments/assets/2f31ac60-677e-4252-a4f6-60ea70a588fb" />
+
 ### The chess board
 
 was implemented in Claude Code and initially allowed all sorts of illegal moves. Pawns could capture backwards, rooks could teleport through multiple pieces and snipe the back rank. I'm still not sure if I fixed all the bugs. Castling took a few prompts to get right, but AIs seem well versed in En Passant as I only had to ask once for it (suspicious).
