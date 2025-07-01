@@ -3,6 +3,7 @@ import ChessBoard from './components/ChessBoard';
 import PlayerSelection from './components/PlayerSelection';
 import CapturedPieces from './components/CapturedPieces';
 import PlayerTimer from './components/PlayerTimer';
+import Leaderboard from './components/Leaderboard';
 import { createGameState, COLORS, PIECE_VALUES, PIECE_TYPES } from './chess/gameState';
 import { isValidMove, isInCheck, isCheckmate, isDrawByRepetition, getBoardPositionString, hasAnyLegalMove } from './chess/moveValidation';
 import './App.css';
@@ -14,7 +15,28 @@ function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [botDelay, setBotDelay] = useState(0); // Default instant
   const [lastMove, setLastMove] = useState(null);
+  const [endlessMode, setEndlessMode] = useState(false);
+  const [playerScores, setPlayerScores] = useState({});
+  const [playerTimes, setPlayerTimes] = useState({});
+  const [whiteTime, setWhiteTime] = useState(0);
+  const [blackTime, setBlackTime] = useState(0);
   const botWorkerRef = useRef(null);
+
+  const botPlayers = [
+    'random',
+    'claude-3-5-sonnet-20241022',
+    'claude-opus-4-20250514',
+    'claude-opus-4-20250514-ULTRATHINK',
+    'claude-sonnet-4-20250514',
+    'gemini-2.5-flash-preview-05-20',
+    'gemini-2.5-pro-20250626',
+    'gpt-4o-20250626',
+    'grok-3-mini'
+  ];
+
+  const getRandomBot = () => {
+    return botPlayers[Math.floor(Math.random() * botPlayers.length)];
+  };
 
   const handleMove = (from, to) => {
     // Prevent moves if game hasn't started
@@ -56,6 +78,23 @@ function App() {
     setGameResetCounter(prev => prev + 1);
   };
 
+  const startEndlessMode = () => {
+    setEndlessMode(true);
+    // Select random players, ensuring they're different
+    const whiteBot = getRandomBot();
+    let blackBot = getRandomBot();
+    while (blackBot === whiteBot) {
+      blackBot = getRandomBot();
+    }
+    setGameState(prev => ({
+      ...prev,
+      whitePlayer: whiteBot,
+      blackPlayer: blackBot
+    }));
+    setGameStarted(true);
+    setGameResetCounter(prev => prev + 1);
+  };
+
   const resetGame = () => {
     const currentWhitePlayer = gameState.whitePlayer;
     const currentBlackPlayer = gameState.blackPlayer;
@@ -69,6 +108,9 @@ function App() {
     setIsProcessingBotMove(false);
     setGameStarted(false);
     setLastMove(null);
+    setEndlessMode(false);
+    setWhiteTime(0);
+    setBlackTime(0);
     // Terminate any existing worker
     if (botWorkerRef.current) {
       botWorkerRef.current.terminate();
@@ -305,6 +347,53 @@ function App() {
     };
   }, []);
 
+  // Handle game end in endless mode
+  useEffect(() => {
+    if (endlessMode && gameStarted && (gameState.gameStatus === 'checkmate' || gameState.gameStatus === 'stalemate' || gameState.gameStatus === 'draw')) {
+      // Update scores
+      const newScores = { ...playerScores };
+      const newTimes = { ...playerTimes };
+      
+      // Update times
+      if (!newTimes[gameState.whitePlayer]) newTimes[gameState.whitePlayer] = 0;
+      if (!newTimes[gameState.blackPlayer]) newTimes[gameState.blackPlayer] = 0;
+      newTimes[gameState.whitePlayer] += whiteTime;
+      newTimes[gameState.blackPlayer] += blackTime;
+      
+      if (gameState.gameStatus === 'checkmate') {
+        const winner = gameState.currentTurn === COLORS.WHITE ? gameState.blackPlayer : gameState.whitePlayer;
+        if (!newScores[winner]) newScores[winner] = 0;
+        newScores[winner] += 1;
+      } else {
+        // Draw - both get 0.5
+        if (!newScores[gameState.whitePlayer]) newScores[gameState.whitePlayer] = 0;
+        if (!newScores[gameState.blackPlayer]) newScores[gameState.blackPlayer] = 0;
+        newScores[gameState.whitePlayer] += 0.5;
+        newScores[gameState.blackPlayer] += 0.5;
+      }
+      
+      setPlayerScores(newScores);
+      setPlayerTimes(newTimes);
+      
+      // Start new game after a delay
+      setTimeout(() => {
+        const whiteBot = getRandomBot();
+        let blackBot = getRandomBot();
+        while (blackBot === whiteBot) {
+          blackBot = getRandomBot();
+        }
+        const newGameState = createGameState();
+        newGameState.whitePlayer = whiteBot;
+        newGameState.blackPlayer = blackBot;
+        setGameState(newGameState);
+        setGameResetCounter(prev => prev + 1);
+        setLastMove(null);
+        setWhiteTime(0);
+        setBlackTime(0);
+      }, 2000); // 2 second delay before starting new game
+    }
+  }, [gameState.gameStatus, endlessMode, gameStarted]);
+
   const getGameStatusMessage = () => {
     if (!gameStarted) {
       return 'Select players and click Start Game';
@@ -383,18 +472,32 @@ function App() {
           </div>
         )}
         {!gameStarted ? (
-          <button onClick={startGame} style={{ 
-            backgroundColor: '#4CAF50', 
-            color: 'white', 
-            border: 'none', 
-            padding: '10px 20px', 
-            borderRadius: '5px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            margin: '10px'
-          }}>
-            Start Game
-          </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button onClick={startGame} style={{ 
+              backgroundColor: '#4CAF50', 
+              color: 'white', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              margin: '10px'
+            }}>
+              Start Game
+            </button>
+            <button onClick={startEndlessMode} style={{ 
+              backgroundColor: '#9C27B0', 
+              color: 'white', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              margin: '10px'
+            }}>
+              Endless Mode
+            </button>
+          </div>
         ) : (
           <button onClick={resetGame} style={{ 
             backgroundColor: '#f44336', 
@@ -433,6 +536,7 @@ function App() {
             gameStatus={gameState.gameStatus}
             resetTrigger={gameResetCounter}
             gameStarted={gameStarted}
+            onTimeUpdate={(time) => setWhiteTime(time / 1000)}
           />
         </div>
 
@@ -464,9 +568,14 @@ function App() {
             gameStatus={gameState.gameStatus}
             resetTrigger={gameResetCounter}
             gameStarted={gameStarted}
+            onTimeUpdate={(time) => setBlackTime(time / 1000)}
           />
         </div>
       </div>
+      
+      {endlessMode && (
+        <Leaderboard playerScores={playerScores} playerTimes={playerTimes} />
+      )}
       
       <div style={{
         marginTop: '20px',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const PlayerTimer = ({ isActive, gameStatus, resetTrigger, gameStarted }) => {
+const PlayerTimer = ({ isActive, gameStatus, resetTrigger, gameStarted, onTimeUpdate }) => {
   const [totalTime, setTotalTime] = useState(0);
 
   // Reset timer when resetTrigger changes
@@ -11,7 +11,7 @@ const PlayerTimer = ({ isActive, gameStatus, resetTrigger, gameStarted }) => {
   useEffect(() => {
     let interval = null;
     
-    if (isActive && gameStatus === 'playing' && gameStarted) {
+    if (isActive && (gameStatus === 'playing' || gameStatus === 'check') && gameStarted) {
       interval = setInterval(() => {
         setTotalTime(time => time + 10);
       }, 10);
@@ -21,6 +21,13 @@ const PlayerTimer = ({ isActive, gameStatus, resetTrigger, gameStarted }) => {
 
     return () => clearInterval(interval);
   }, [isActive, gameStatus, gameStarted]);
+
+  // Notify parent of time continuously
+  useEffect(() => {
+    if (onTimeUpdate) {
+      onTimeUpdate(totalTime);
+    }
+  }, [totalTime, onTimeUpdate]);
 
   const formatTime = (milliseconds) => {
     const totalMs = Math.floor(milliseconds);
